@@ -16,18 +16,18 @@
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html { font-size: clamp(9px, 0.85vw, 13px); }
-  body { background:var(--bg); color:var(--text); font-family:'Noto Sans JP',sans-serif; height:100vh; overflow:hidden; padding:0.5rem 1rem; display:flex; flex-direction:column; gap:0; }
-  /* 上部固定エリア（設定・ヘッダー・ステータス・KPI）をautoに、グラフエリアをflexで残り全部 */
-  .fixed-top { flex-shrink:0; }
-  .chart-area { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; }
+  body { background:var(--bg); color:var(--text); font-family:'Noto Sans JP',sans-serif; min-height:100vh; padding:0.5rem 1rem; }
+  .fixed-top { }
+  /* グラフエリア: 高さをvhで固定してその中に3グラフを収める */
+  .chart-area { height:56vh; display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
 
   /* 設定パネル */
   .config-panel {
     background:var(--surface);
     border:1px solid var(--border);
     border-radius:8px;
-    padding:10px 16px;
-    margin-bottom:8px;
+    padding:8px 14px;
+    margin-bottom:6px;
   }
   .config-title {
     font-size:0.68rem; font-family:'IBM Plex Mono',monospace;
@@ -250,7 +250,7 @@
 <div class="chart-area">
 
   <!-- 上段: 原油スポット価格 全幅 -->
-  <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;flex:1.5;min-height:0;">
+  <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;flex:1.6;min-height:0;">
     <div class="chart-header">
       <div class="chart-title">原油スポット価格推移（USD/bbl）</div>
       <div class="legend">
@@ -263,10 +263,10 @@
   </div>
 
   <!-- 下段: BDTI | 戦争保険料率 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;min-height:0;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;min-height:0;overflow:hidden;">
 
     <!-- BDTI -->
-    <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;">
+    <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
       <div class="chart-header">
         <div class="chart-title">BDTI（タンカー運賃指数）</div>
         <div class="legend">
@@ -277,7 +277,7 @@
     </div>
 
     <!-- 戦争保険料率 -->
-    <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;">
+    <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
       <div class="chart-header">
         <div class="chart-title">戦争保険料率</div>
       </div>
