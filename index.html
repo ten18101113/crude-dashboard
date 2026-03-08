@@ -159,29 +159,41 @@
 <div class="fixed-top">
 <!-- 設定パネル -->
 <div class="config-panel">
-  <div class="config-title">⚙ データソース設定</div>
-  <div class="config-grid">
-    <div class="config-item">
-      <div class="config-label">① EIA API Key（WTI・Brent 公式データ）</div>
-      <input id="eiaKey" class="config-input" type="text" placeholder="EIA APIキー（無料: eia.gov/opendata/register.php）"/>
-    </div>
-    <div class="config-item">
-      <div class="config-label">② BDTI JSONパス（STEP2スクリプトの出力ファイル）</div>
-      <input id="bdtiPath" class="config-input" type="text" placeholder="bdti_latest.json（またはURLを入力）" value="bdti_latest.json"/>
-    </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div class="config-title" style="margin-bottom:0;">⚙ データソース設定</div>
+    <button class="btn-secondary" id="toggleConfigBtn" onclick="toggleConfig()" style="font-size:0.65rem;padding:4px 10px;">▼ 詳細</button>
   </div>
-  <div class="config-actions">
+  <!-- 通常表示: ボタンだけ -->
+  <div id="configSimple" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <button class="btn-primary" id="fetchBtn" onclick="fetchAllData()">📡 全データ取得・更新</button>
-    <button class="btn-secondary" onclick="loadDemoMode()">🔧 デモモードで確認</button>
+    <button class="btn-secondary" onclick="loadDemoMode()">🔧 デモモード</button>
     <select id="rangeSelect" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.72rem;padding:7px 10px;outline:none;">
       <option value="30">1ヶ月</option>
       <option value="90">3ヶ月</option>
       <option value="180" selected>6ヶ月</option>
       <option value="365">1年</option>
     </select>
-    <div class="config-hint">
-      ※ EIA APIキーは<a href="https://www.eia.gov/opendata/register.php" target="_blank">こちら</a>から無料取得 ｜
-      BDTI JSON は fetch_bdti.py を実行後に生成されます
+    <span id="keyStatus" style="font-size:0.65rem;font-family:'IBM Plex Mono',monospace;color:#334155;">APIキー: 未設定</span>
+  </div>
+  <!-- 詳細表示: APIキー入力（折りたたみ） -->
+  <div id="configDetail" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+    <div class="config-grid">
+      <div class="config-item">
+        <div class="config-label">EIA API Key（このブラウザに保存されます）</div>
+        <div style="display:flex;gap:6px;">
+          <input id="eiaKey" class="config-input" type="password" placeholder="EIA APIキーを入力して保存"/>
+          <button class="btn-primary" onclick="saveApiKey()" style="white-space:nowrap;padding:7px 14px;">保存</button>
+          <button class="btn-secondary" onclick="clearApiKey()" style="white-space:nowrap;padding:7px 10px;font-size:0.65rem;">削除</button>
+        </div>
+        <div class="config-hint" style="margin-top:4px;">
+          ブラウザのlocalStorageに保存。GitHubには送信されません。
+          <a href="https://www.eia.gov/opendata/register.php" target="_blank">APIキー取得 →</a>
+        </div>
+      </div>
+      <div class="config-item">
+        <div class="config-label">BDTI JSONパス</div>
+        <input id="bdtiPath" class="config-input" type="text" placeholder="bdti_latest.json" value="bdti_latest.json"/>
+      </div>
     </div>
   </div>
 </div>
@@ -448,11 +460,11 @@ async function fetchBDTI(path){
 
 // ===== 全データ取得 =====
 async function fetchAllData(){
-  const apiKey=document.getElementById('eiaKey').value.trim();
+  const apiKey=localStorage.getItem('eia_api_key')||document.getElementById('eiaKey').value.trim();
   const bdtiPath=document.getElementById('bdtiPath').value.trim()||'bdti_latest.json';
   const days=parseInt(document.getElementById('rangeSelect').value);
 
-  if(!apiKey){ alert('EIA APIキーを入力してください。'); return; }
+  if(!apiKey){ alert('APIキーが未設定です。「▼ 詳細」からEIA APIキーを保存してください。'); return; }
 
   document.getElementById('fetchBtn').disabled=true;
   showLoading('EIA APIに接続中...');
@@ -722,10 +734,43 @@ function saveMemo(){
   ).join('');
 }
 
+// ===== APIキー localStorage管理 =====
+function saveApiKey(){
+  const k = document.getElementById('eiaKey').value.trim();
+  if(!k){ alert('APIキーを入力してください'); return; }
+  localStorage.setItem('eia_api_key', k);
+  updateKeyStatus();
+  document.getElementById('configDetail').style.display='none';
+  document.getElementById('toggleConfigBtn').textContent='▼ 詳細';
+}
+function clearApiKey(){
+  localStorage.removeItem('eia_api_key');
+  document.getElementById('eiaKey').value='';
+  updateKeyStatus();
+}
+function updateKeyStatus(){
+  const k = localStorage.getItem('eia_api_key');
+  const el = document.getElementById('keyStatus');
+  if(k){ el.textContent='APIキー: ✓ 保存済み'; el.style.color='var(--green)'; }
+  else { el.textContent='APIキー: 未設定'; el.style.color='#334155'; }
+}
+function toggleConfig(){
+  const d = document.getElementById('configDetail');
+  const btn = document.getElementById('toggleConfigBtn');
+  if(d.style.display==='none'){
+    d.style.display='block'; btn.textContent='▲ 閉じる';
+    const k = localStorage.getItem('eia_api_key');
+    if(k) document.getElementById('eiaKey').value=k;
+  } else {
+    d.style.display='none'; btn.textContent='▼ 詳細';
+  }
+}
+
 // ===== 初期化 =====
 document.getElementById('footerTime').textContent='起動: '+new Date().toLocaleString('ja-JP');
-fetchFXRate(); // 起動時に為替レート取得
-loadDemoMode(); // 初期表示はデモモード
+updateKeyStatus();
+fetchFXRate();
+loadDemoMode();
 
 // ===== 戦争保険 参照パネル =====
 
