@@ -29,7 +29,7 @@ jobs:
           git config user.email "actions@github.com"
           git add -A
           if git diff --staged --quiet; then
-            echo "変更なし（土日・祝日）— スキップ"
+echo "No changes (weekend/holiday) - skipping"
           else
             git commit -m "Update BDTI data $(date +'%Y-%m-%d')"
             git push
