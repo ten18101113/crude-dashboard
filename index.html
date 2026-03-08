@@ -127,7 +127,7 @@
   .loading-text { font-family:'IBM Plex Mono',monospace; font-size:0.78rem; color:var(--muted); }
 
   /* アラート & メモ */
-  .bottom-tools { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .bottom-tools { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
   .tool-box { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
   .tool-title { font-size:0.65rem; font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:12px; }
 
@@ -241,111 +241,85 @@
   </div>
 </div>
 
-<!-- メインチャート -->
-<div class="chart-container">
-  <div class="chart-header">
-    <div class="chart-title">原油スポット価格推移（USD/bbl）</div>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:var(--wti)"></div>WTI</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--brent)"></div>Brent</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--dubai)"></div>Dubai</div>
-    </div>
-  </div>
-  <canvas id="priceChart" style="max-height:18vh"></canvas>
-</div>
+<!-- グラフエリア: 上=原油全幅 / 下=BDTI+戦争保険2列 -->
+<div style="display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;">
 
-<!-- 下段2列 -->
-<div class="bottom-row">
-  <div class="chart-container">
+  <!-- 上段: 原油スポット価格 全幅 -->
+  <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;flex:1.2;">
     <div class="chart-header">
-      <div class="chart-title">BDTI（タンカー運賃指数）</div>
+      <div class="chart-title">原油スポット価格推移（USD/bbl）</div>
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--freight)"></div>Baltic Dirty Tanker Index</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--wti)"></div>WTI</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--brent)"></div>Brent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--dubai)"></div>Dubai</div>
       </div>
     </div>
-    <canvas id="bdtiChart" style="max-height:14vh"></canvas>
-    <div class="note" style="margin-top:8px;">Dubai→Japan VLCC運賃の代替指標。stooq経由でfetch_bdti.pyが自動更新。</div>
+    <canvas id="priceChart" style="flex:1;min-height:0;"></canvas>
   </div>
-  <div class="chart-container">
-    <div class="chart-header">
-      <div class="chart-title">戦争保険料率</div>
-    </div>
-    <canvas id="warChart" style="max-height:10vh"></canvas>
 
-    <!-- 入力エリア -->
-    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.15);border-radius:6px;">
-      <span style="font-size:0.68rem;font-family:'IBM Plex Mono',monospace;color:var(--war);white-space:nowrap;">📌 今日のレート</span>
-      <input id="warInput" class="war-input" type="number" value="0.045" step="0.001" min="0" max="5"/>
-      <span style="font-size:0.68rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);">%</span>
-      <button class="war-apply" onclick="applyWarRate()">グラフに記録</button>
-    </div>
+  <!-- 下段: BDTI | 戦争保険料率 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0;">
 
-    <!-- 参照情報パネル -->
-    <div style="margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-      <!-- タブヘッダー -->
-      <div style="display:flex;border-bottom:1px solid var(--border);" id="warTabs">
-        <button onclick="showWarTab('jwc')" id="tab-jwc" class="war-tab active-tab">① JWC 対象海域</button>
-        <button onclick="showWarTab('jla')" id="tab-jla" class="war-tab">② Japan P&amp;I / JLA</button>
-        <button onclick="showWarTab('gpr')" id="tab-gpr" class="war-tab">③ GPR指数</button>
-      </div>
-
-      <!-- ① JWC タブ -->
-      <div id="pane-jwc" style="padding:10px 12px;">
-        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:8px;">
-          Lloyd's JWC Listed Areas（リスク指定海域） ── 最新: JWLA-033（2026-03-06 更新）
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;" id="jwcAreaList"></div>
-        <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
-          <a href="https://lmalloyds.com/committee/joint-war-committee/" target="_blank" style="text-decoration:none;"><div class="link-item">🏛 Lloyd's Market Association（JWC公式）→ lmalloyds.com</div></a>
-          <a href="https://www.fa-maritime.com/en/joint-war-committee-listed-territories/" target="_blank" style="text-decoration:none;"><div class="link-item">🗺 JWC Listed Areas マップ一覧 → fa-maritime.com</div></a>
-        </div>
-        <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:#334155;margin-top:8px;">
-          ⚠ 航路が上記エリアに含まれる場合、追加保険料が発生します。確認後に上の入力欄へ記録してください。
+    <!-- BDTI -->
+    <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;">
+      <div class="chart-header">
+        <div class="chart-title">BDTI（タンカー運賃指数）</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--freight)"></div>Baltic Dirty Tanker Index</div>
         </div>
       </div>
+      <canvas id="bdtiChart" style="flex:1;min-height:0;"></canvas>
+    </div>
 
-      <!-- ② JLA タブ -->
-      <div id="pane-jla" style="padding:10px 12px;display:none;">
-        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:8px;">
-          Japan P&amp;I Club（日本船主責任相互保険組合）── 戦争リスク関連通知
+    <!-- 戦争保険料率 -->
+    <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;">
+      <div class="chart-header">
+        <div class="chart-title">戦争保険料率</div>
+      </div>
+      <canvas id="warChart" style="flex:1;min-height:0;max-height:12vh;"></canvas>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:6px 8px;background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.15);border-radius:5px;">
+        <span style="font-size:0.62rem;font-family:'IBM Plex Mono',monospace;color:var(--war);white-space:nowrap;">📌 今日</span>
+        <input id="warInput" class="war-input" type="number" value="0.045" step="0.001" min="0" max="5" style="width:70px;"/>
+        <span style="font-size:0.62rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);">%</span>
+        <button class="war-apply" onclick="applyWarRate()">記録</button>
+      </div>
+
+      <!-- 参照情報パネル -->
+      <div style="margin-top:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+        <div style="display:flex;border-bottom:1px solid var(--border);" id="warTabs">
+          <button onclick="showWarTab('jwc')" id="tab-jwc" class="war-tab active-tab">① JWC</button>
+          <button onclick="showWarTab('jla')" id="tab-jla" class="war-tab">② Japan P&amp;I</button>
+          <button onclick="showWarTab('gpr')" id="tab-gpr" class="war-tab">③ GPR指数</button>
         </div>
-        <!-- 最新通知バナー -->
-        <div style="padding:8px 10px;background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);border-radius:6px;margin-bottom:10px;">
-          <div style="font-size:0.63rem;font-family:'IBM Plex Mono',monospace;color:var(--war);font-weight:700;margin-bottom:3px;">📋 直近の主な通知</div>
-          <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;line-height:1.6;">
-            <div>• 2024-02-20 ── インド洋・アデン湾・南紅海の戦争リスクカバー変更</div>
-            <div>• 2023-02-20 ── 黒海・アゾフ海カバー限度額改定（JWLA対応）</div>
-            <div>• ホルムズ・ペルシャ湾 ── 継続的に高リスク水域として通知中</div>
+        <div id="pane-jwc" style="padding:6px 10px;">
+          <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:6px;">Lloyd's JWC Listed Areas ── JWLA-033（2026-03-06）</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;" id="jwcAreaList"></div>
+          <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+            <a href="https://lmalloyds.com/committee/joint-war-committee/" target="_blank" style="text-decoration:none;"><div class="link-item">🏛 Lloyd's Market Association（JWC公式）→</div></a>
+            <a href="https://www.fa-maritime.com/en/joint-war-committee-listed-territories/" target="_blank" style="text-decoration:none;"><div class="link-item">🗺 JWC Listed Areas マップ →</div></a>
           </div>
         </div>
-        <!-- 注記 -->
-        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:#475569;padding:7px 9px;background:rgba(255,255,255,0.02);border-left:2px solid #334155;border-radius:2px;margin-bottom:8px;">
-          ℹ 戦争保険の具体的な料率（%）は船社・ブローカー間の個別交渉のため非公開です。<br>
-          Japan P&amp;I Clubの通知を参照し、ご自身のブローカーへ問い合わせの上、入力してください。
+        <div id="pane-jla" style="padding:6px 10px;display:none;">
+          <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:6px;">Japan P&amp;I Club ── 戦争リスク関連通知</div>
+          <div style="padding:6px 8px;background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);border-radius:5px;font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;line-height:1.6;margin-bottom:6px;">
+            <div>• 2024-02-20 ── アデン湾・南紅海カバー変更</div>
+            <div>• 2023-02-20 ── 黒海・アゾフ海限度額改定</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <a href="https://www.piclub.or.jp/ja/news/" target="_blank" style="text-decoration:none;"><div class="link-item">📢 Japan P&amp;I 最新ニュース →</div></a>
+            <a href="https://www.piclub.or.jp/ja/news/39088" target="_blank" style="text-decoration:none;"><div class="link-item">📄 アデン湾・紅海通知（2024） →</div></a>
+          </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <a href="https://www.piclub.or.jp/ja/news/" target="_blank" style="text-decoration:none;"><div class="link-item">📢 Japan P&amp;I Club 最新ニュース一覧 → piclub.or.jp</div></a>
-          <a href="https://www.piclub.or.jp/ja/news/39088" target="_blank" style="text-decoration:none;"><div class="link-item">📄 アデン湾・紅海 戦争リスク通知（2024） → piclub.or.jp</div></a>
-          <a href="https://www.piclub.or.jp/ja/news/36804" target="_blank" style="text-decoration:none;"><div class="link-item">📄 黒海・アゾフ海 Excess War P&amp;I改定（2023） → piclub.or.jp</div></a>
-        </div>
-      </div>
-
-      <!-- ③ GPR タブ -->
-      <div id="pane-gpr" style="padding:10px 12px;display:none;">
-        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:6px;">
-          Geopolitical Risk Index（Caldara &amp; Iacoviello / FRB）── 月次・無料公開・自動取得
-        </div>
-        <canvas id="gprChart" height="90"></canvas>
-        <div id="gprStatus" style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-top:5px;"></div>
-        <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:#475569;margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.02);border-left:2px solid #334155;border-radius:2px;">
-          GPRが急上昇しているとき → 戦争保険料率も上昇している可能性が高いです。<br>
-          グラフを確認してから上の入力欄に今日のレートを記録してください。
-          <a href="https://www.matteoiacoviello.com/gpr.htm" target="_blank" style="color:#38bdf8;text-decoration:none;margin-left:6px;">出典（FRB） ↗</a>
+        <div id="pane-gpr" style="padding:6px 10px;display:none;">
+          <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:4px;">GPR Index（Caldara &amp; Iacoviello / FRB）── 月次自動取得</div>
+          <canvas id="gprChart" height="70"></canvas>
+          <div id="gprStatus" style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-top:4px;"></div>
         </div>
       </div>
     </div>
-  </div>
-</div>
+
+  </div><!-- end 下段2列 -->
+</div><!-- end グラフエリア -->
 
 <!-- アラート & メモ -->
 <div class="bottom-tools">
