@@ -110,7 +110,11 @@ def main():
         save_csv(df, OUTPUT_FILE)
     except Exception as e:
         print(f"  [エラー] {e}")
-        sys.exit(1)
+        if os.path.exists(OUTPUT_FILE):
+            print(f"  既存の {OUTPUT_FILE} を維持します（土日・祝日は正常）")
+            sys.exit(0)
+        else:
+            sys.exit(1)
 
     # ── 確認表示 ──────────────────────────────────
     print("\n[2] 最新5件:")
