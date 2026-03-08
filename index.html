@@ -194,11 +194,14 @@
     </h1>
     <div class="subtitle">WTI・Brent：EIA API ｜ BDTI：stooq via Python ｜ Dubai：Brent近似 or FRED/IMF月次 ｜ 戦争保険：手動入力</div>
   </div>
-  <div class="range-btns">
-    <button class="range-btn" onclick="setRange(30,this)">1M</button>
-    <button class="range-btn" onclick="setRange(90,this)">3M</button>
-    <button class="range-btn active" onclick="setRange(180,this)">6M</button>
-    <button class="range-btn" onclick="setRange(365,this)">1Y</button>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+    <div class="range-btns">
+      <button class="range-btn" onclick="setRange(30,this)">1M</button>
+      <button class="range-btn" onclick="setRange(90,this)">3M</button>
+      <button class="range-btn active" onclick="setRange(180,this)">6M</button>
+      <button class="range-btn" onclick="setRange(365,this)">1Y</button>
+    </div>
+
   </div>
 </div>
 
@@ -216,18 +219,21 @@
   <div class="kpi wti">
     <div class="kpi-label">WTI CRUDE</div>
     <div class="kpi-value" id="kWti">--</div>
+    <div class="kpi-value-jpy" id="kWtiJpy" style="font-size:0.85rem;font-family:'IBM Plex Mono',monospace;color:#f59e0b;opacity:0.7;margin-top:1px;">--</div>
     <div class="kpi-change" id="kWtiC">--</div>
     <div class="kpi-badge badge-live">EIA 公式</div>
   </div>
   <div class="kpi brent">
     <div class="kpi-label">BRENT CRUDE</div>
     <div class="kpi-value" id="kBrent">--</div>
+    <div class="kpi-value-jpy" id="kBrentJpy" style="font-size:0.85rem;font-family:'IBM Plex Mono',monospace;color:#38bdf8;opacity:0.7;margin-top:1px;">--</div>
     <div class="kpi-change" id="kBrentC">--</div>
     <div class="kpi-badge badge-live">EIA 公式</div>
   </div>
   <div class="kpi dubai">
     <div class="kpi-label">DUBAI CRUDE</div>
     <div class="kpi-value" id="kDubai">--</div>
+    <div class="kpi-value-jpy" id="kDubaiJpy" style="font-size:0.85rem;font-family:'IBM Plex Mono',monospace;color:#a78bfa;opacity:0.7;margin-top:1px;">--</div>
     <div class="kpi-change" id="kDubaiC">参考値</div>
     <div class="kpi-badge badge-approx" id="dubaiSourceBadge">Brent近似</div>
   </div>
@@ -252,11 +258,18 @@
   <!-- 上段: 原油スポット価格 全幅 -->
   <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;flex:1.6;min-height:0;">
     <div class="chart-header">
-      <div class="chart-title">原油スポット価格推移（USD/bbl）</div>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--wti)"></div>WTI</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--brent)"></div>Brent</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--dubai)"></div>Dubai</div>
+      <div class="chart-title" id="priceChartTitle">原油スポット価格推移（USD/bbl）</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="legend" style="margin-right:8px;">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--wti)"></div>WTI</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--brent)"></div>Brent</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--dubai)"></div>Dubai</div>
+        </div>
+        <div style="display:flex;gap:3px;align-items:center;">
+          <button class="range-btn active" id="btnUSD" onclick="setCurrency('USD',this)" style="padding:3px 8px;font-size:0.62rem;">$ USD</button>
+          <button class="range-btn" id="btnJPY" onclick="setCurrency('JPY',this)" style="padding:3px 8px;font-size:0.62rem;">¥ JPY</button>
+          <span id="fxLabel" style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:#334155;margin-left:2px;"></span>
+        </div>
       </div>
     </div>
     <canvas id="priceChart" style="flex:1;min-height:0;"></canvas>
@@ -547,14 +560,21 @@ function loadDemoMode(){
 
 // ===== KPI更新 =====
 function updateKPI(){
-  function set(vid,cid,arr){
+  const fx = state.fxRate || 150;
+  function set(vid, jpyId, cid, arr){
     const v=arr[arr.length-1], p=arr[arr.length-2];
-    document.getElementById(vid).textContent=v!=null?`$${v.toFixed(2)}`:'--';
+    if(v!=null){
+      document.getElementById(vid).textContent = `$${v.toFixed(2)}`;
+      if(jpyId) document.getElementById(jpyId).textContent = `¥${Math.round(v*fx).toLocaleString()}`;
+    } else {
+      document.getElementById(vid).textContent = '--';
+      if(jpyId) document.getElementById(jpyId).textContent = '--';
+    }
     if(v&&p){ const d=v-p,pct=(d/p*100).toFixed(2); const el=document.getElementById(cid); el.textContent=`${d>0?'▲':'▼'} ${Math.abs(d).toFixed(2)} (${d>0?'+':''}${pct}%)`; el.className='kpi-change '+(d>=0?'up':'down'); }
   }
-  set('kWti','kWtiC',state.wti);
-  set('kBrent','kBrentC',state.brent);
-  set('kDubai','kDubaiC',state.dubai);
+  set('kWti','kWtiJpy','kWtiC',state.wti);
+  set('kBrent','kBrentJpy','kBrentC',state.brent);
+  set('kDubai','kDubaiJpy','kDubaiC',state.dubai);
   // Dubaiバッジをデータソースに応じて切り替え
   const dubaiBadge = document.getElementById('dubaiSourceBadge');
   if(dubaiBadge){
@@ -587,15 +607,20 @@ function renderAllCharts(days){
   state.displayDays=days;
   const sl=arr=>arr.slice(-Math.min(days,arr.length));
   const labels=sl(state.labels);
+  const isJPY=state.currency==='JPY';
+  const fx=state.fxRate||1;
+  const titleEl=document.getElementById('priceChartTitle');
+  if(titleEl) titleEl.textContent=isJPY?'原油スポット価格推移（JPY/bbl）':'原油スポット価格推移（USD/bbl）';
 
   // 原油価格チャート
   const ctx1=document.getElementById('priceChart').getContext('2d');
   if(charts.price) charts.price.destroy();
+  const conv=v=>v!=null?(isJPY?Math.round(v*fx):v):null;
   charts.price=new Chart(ctx1,{type:'line',data:{labels,datasets:[
-    {label:'WTI',data:sl(state.wti),borderColor:'#f59e0b',backgroundColor:makeGrad(ctx1,'#f59e0b'),borderWidth:2,pointRadius:0,fill:true,tension:0.3},
-    {label:'Brent',data:sl(state.brent),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:1.8,pointRadius:0,tension:0.3},
-    {label:'Dubai',data:sl(state.dubai),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.3}
-  ]},options:{...baseOpts,plugins:{...baseOpts.plugins,tooltip:{...baseOpts.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: $${c.parsed.y?.toFixed(2)}`}}},scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>'$'+v}}}}});
+    {label:'WTI',data:sl(state.wti).map(conv),borderColor:'#f59e0b',backgroundColor:makeGrad(ctx1,'#f59e0b'),borderWidth:2,pointRadius:0,fill:true,tension:0.3},
+    {label:'Brent',data:sl(state.brent).map(conv),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:1.8,pointRadius:0,tension:0.3},
+    {label:'Dubai',data:sl(state.dubai).map(conv),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.3}
+  ]},options:{...baseOpts,plugins:{...baseOpts.plugins,tooltip:{...baseOpts.plugins.tooltip,callbacks:{label:c=>isJPY?` ${c.dataset.label}: ¥${Math.round(c.parsed.y).toLocaleString()}`:` ${c.dataset.label}: $${c.parsed.y?.toFixed(2)}`}}},scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>isJPY?'¥'+Math.round(v).toLocaleString():'$'+v}}}}});
 
   // BDTIチャート
   const ctx2=document.getElementById('bdtiChart').getContext('2d');
@@ -620,7 +645,36 @@ function makeGrad(ctx,c,h=280){
 function setRange(d,btn){
   document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  // 通貨ボタンは別管理なので再適用
+  document.getElementById(state.currency==='JPY'?'btnJPY':'btnUSD').classList.add('active');
   if(state.labels.length) renderAllCharts(d);
+}
+
+async function fetchFXRate(){
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY');
+    if(!r.ok) throw new Error('FX fetch failed');
+    const j = await r.json();
+    state.fxRate = j.rates?.JPY || 150;
+    document.getElementById('fxLabel').textContent = `1USD=¥${state.fxRate.toFixed(1)}`;
+  } catch(e) {
+    state.fxRate = 150; // フォールバック
+    document.getElementById('fxLabel').textContent = '1USD=¥150（暫定）';
+    console.warn('FX fallback:', e.message);
+  }
+}
+
+function setCurrency(cur, btn){
+  state.currency = cur;
+  document.getElementById('btnUSD').classList.remove('active');
+  document.getElementById('btnJPY').classList.remove('active');
+  btn.classList.add('active');
+  if(cur==='JPY' && !state.fxRate){
+    fetchFXRate().then(()=>{ updateKPI(); if(state.labels.length) renderAllCharts(state.displayDays); });
+  } else {
+    updateKPI();
+    if(state.labels.length) renderAllCharts(state.displayDays);
+  }
 }
 
 // ===== 戦争保険 手動追加 =====
@@ -670,6 +724,7 @@ function saveMemo(){
 
 // ===== 初期化 =====
 document.getElementById('footerTime').textContent='起動: '+new Date().toLocaleString('ja-JP');
+fetchFXRate(); // 起動時に為替レート取得
 loadDemoMode(); // 初期表示はデモモード
 
 // ===== 戦争保険 参照パネル =====
