@@ -2,8 +2,8 @@ name: Update BDTI Data
 
 on:
   schedule:
-    - cron: '30 9 * * 1-5'  # 平日 18:30 JST
-  workflow_dispatch:          # 手動実行ボタン
+    - cron: '30 9 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   update:
@@ -23,9 +23,14 @@ jobs:
       - name: Run fetch_bdti.py
         run: python fetch_bdti.py
 
-- name: Commit and push
+      - name: Commit and push
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add -A
-          git diff --staged --quiet && echo "変更なし（土日・祝日）" || git commit -m "Update BDTI data $(date +'%Y-%m-%d')" && git push
+          if git diff --staged --quiet; then
+            echo "No changes - skipping"
+          else
+            git commit -m "Update BDTI data $(date +'%Y-%m-%d')"
+            git push
+          fi
