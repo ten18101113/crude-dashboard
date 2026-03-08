@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原油価格ダッシュボード｜STEP3 統合版</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0e1a; --surface:#111827; --border:#1e293b;
+    --wti:#f59e0b; --brent:#38bdf8; --dubai:#a78bfa;
+    --freight:#34d399; --war:#f87171;
+    --text:#e2e8f0; --muted:#64748b; --accent:#f59e0b;
+    --green:#4ade80; --red:#f87171;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Noto Sans JP',sans-serif; min-height:100vh; padding:24px; }
+
+  /* 設定パネル */
+  .config-panel {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:20px 24px;
+    margin-bottom:20px;
+  }
+  .config-title {
+    font-size:0.68rem; font-family:'IBM Plex Mono',monospace;
+    text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); margin-bottom:14px;
+  }
+  .config-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  }
+  .config-item { display:flex; flex-direction:column; gap:5px; }
+  .config-label { font-size:0.65rem; font-family:'IBM Plex Mono',monospace; color:var(--muted); }
+  .config-input {
+    background:rgba(0,0,0,0.3); border:1px solid var(--border);
+    border-radius:5px; color:var(--text);
+    font-family:'IBM Plex Mono',monospace; font-size:0.78rem;
+    padding:7px 12px; outline:none; transition:border-color 0.15s;
+  }
+  .config-input:focus { border-color:var(--accent); }
+  .config-input::placeholder { color:#334155; }
+  .config-actions { display:flex; gap:10px; margin-top:14px; align-items:center; flex-wrap:wrap; }
+  .btn-primary {
+    background:var(--accent); color:#000; border:none; border-radius:6px;
+    padding:9px 24px; font-family:'IBM Plex Mono',monospace; font-size:0.78rem;
+    font-weight:700; cursor:pointer; transition:opacity 0.15s;
+  }
+  .btn-primary:hover { opacity:0.85; }
+  .btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
+  .btn-secondary {
+    background:transparent; color:var(--muted);
+    border:1px solid var(--border); border-radius:6px;
+    padding:9px 16px; font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
+    cursor:pointer; transition:all 0.15s;
+  }
+  .btn-secondary:hover { border-color:var(--muted); color:var(--text); }
+  .config-hint { font-size:0.62rem; font-family:'IBM Plex Mono',monospace; color:#334155; }
+  .config-hint a { color:#38bdf8; text-decoration:none; }
+
+  /* ヘッダー */
+  .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:16px; }
+  .header h1 { font-size:1.4rem; font-weight:700; color:#fff; }
+  .header .subtitle { font-size:0.7rem; color:var(--muted); margin-top:4px; font-family:'IBM Plex Mono',monospace; }
+  .range-btns { display:flex; gap:6px; }
+  .range-btn { background:var(--surface); border:1px solid var(--border); color:var(--muted); padding:5px 12px; border-radius:4px; cursor:pointer; font-size:0.72rem; font-family:'IBM Plex Mono',monospace; transition:all 0.15s; }
+  .range-btn:hover,.range-btn.active { background:var(--accent); border-color:var(--accent); color:#000; font-weight:700; }
+
+  /* ステータス */
+  .status-row { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px; }
+  .status-item {
+    display:flex; align-items:center; gap:7px;
+    font-size:0.68rem; font-family:'IBM Plex Mono',monospace; color:var(--muted);
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:6px; padding:6px 12px;
+  }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .status-dot.live { background:var(--green); box-shadow:0 0 5px var(--green); animation:pulse 2s infinite; }
+  .status-dot.mock { background:var(--dubai); }
+  .status-dot.error { background:var(--red); }
+  .status-dot.loading { background:var(--accent); animation:pulse 0.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* KPI */
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:20px; }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 14px; position:relative; overflow:hidden; }
+  .kpi::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; }
+  .kpi.wti::before{background:var(--wti)}.kpi.brent::before{background:var(--brent)}
+  .kpi.dubai::before{background:var(--dubai)}.kpi.freight::before{background:var(--freight)}.kpi.war::before{background:var(--war)}
+  .kpi-label { font-size:0.6rem; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:5px; }
+  .kpi-value { font-size:1.35rem; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+  .kpi.wti .kpi-value{color:var(--wti)}.kpi.brent .kpi-value{color:var(--brent)}
+  .kpi.dubai .kpi-value{color:var(--dubai)}.kpi.freight .kpi-value{color:var(--freight)}.kpi.war .kpi-value{color:var(--war)}
+  .kpi-change { font-size:0.65rem; font-family:'IBM Plex Mono',monospace; margin-top:3px; color:var(--muted); }
+  .kpi-change.up{color:var(--green)}.kpi-change.down{color:var(--red)}
+  .kpi-badge { font-size:0.55rem; font-family:'IBM Plex Mono',monospace; margin-top:5px; padding:1px 6px; border-radius:2px; display:inline-block; }
+  .badge-live { background:rgba(74,222,128,0.1); color:var(--green); border:1px solid rgba(74,222,128,0.2); }
+  .badge-proxy { background:rgba(52,211,153,0.1); color:var(--freight); border:1px solid rgba(52,211,153,0.2); }
+  .badge-mock { background:rgba(167,139,250,0.1); color:var(--dubai); border:1px solid rgba(167,139,250,0.2); }
+  .badge-manual { background:rgba(248,113,113,0.1); color:var(--red); border:1px solid rgba(248,113,113,0.2); }
+  .badge-approx { background:rgba(167,139,250,0.08); color:#c084fc; border:1px solid rgba(167,139,250,0.25); }
+
+  /* チャートエリア */
+  .chart-container { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:14px; }
+  .chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .chart-title { font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:0.66rem; font-family:'IBM Plex Mono',monospace; color:var(--muted); }
+  .legend-dot { width:7px; height:7px; border-radius:50%; }
+  .bottom-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  /* 戦争保険 手動入力 */
+  .war-input-row { display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .war-input { width:80px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:0.75rem; padding:5px 8px; outline:none; }
+  .war-input:focus { border-color:var(--war); }
+  .war-apply { background:var(--war); color:#fff; border:none; border-radius:4px; padding:5px 12px; font-family:'IBM Plex Mono',monospace; font-size:0.68rem; cursor:pointer; font-weight:700; }
+
+  /* ローディング */
+  .loading-overlay { display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(10,14,26,0.75); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
+  .loading-overlay.active { display:flex; }
+  .spinner { width:36px;height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text { font-family:'IBM Plex Mono',monospace; font-size:0.78rem; color:var(--muted); }
+
+  /* アラート & メモ */
+  .bottom-tools { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+  .tool-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .tool-title { font-size:0.65rem; font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:12px; }
+
+  .note { font-size:0.63rem; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-top:10px; padding:9px 12px; background:rgba(255,255,255,0.02); border-left:2px solid #1e3a5f; border-radius:2px; }
+
+  /* 戦争保険 参照パネル タブ */
+  .war-tab { flex:1; padding:6px 4px; font-size:0.62rem; font-family:'IBM Plex Mono',monospace; background:transparent; border:none; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; }
+  .war-tab:hover { color:var(--text); }
+  .war-tab.active-tab { background:rgba(248,113,113,0.08); color:var(--war); border-bottom:2px solid var(--war); }
+  .jwc-badge { display:inline-block; padding:3px 8px; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.25); border-radius:12px; font-size:0.58rem; font-family:'IBM Plex Mono',monospace; color:var(--war); }
+  .news-item { display:flex; align-items:center; gap:8px; padding:6px 10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:5px; transition:border-color 0.15s; }
+  .news-item:hover { border-color:#f87171; }
+  .news-title { font-size:0.65rem; font-family:'IBM Plex Mono',monospace; color:var(--text); }
+  .news-sub { font-size:0.58rem; font-family:'IBM Plex Mono',monospace; color:var(--muted); }
+  .link-item { padding:7px 10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:5px; font-size:0.65rem; font-family:'IBM Plex Mono',monospace; color:var(--text); transition:border-color 0.15s; }
+  .link-item:hover { border-color:#38bdf8; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">データ取得中...</div>
+</div>
+
+<!-- 設定パネル -->
+<div class="config-panel">
+  <div class="config-title">⚙ データソース設定</div>
+  <div class="config-grid">
+    <div class="config-item">
+      <div class="config-label">① EIA API Key（WTI・Brent 公式データ）</div>
+      <input id="eiaKey" class="config-input" type="text" placeholder="EIA APIキー（無料: eia.gov/opendata/register.php）"/>
+    </div>
+    <div class="config-item">
+      <div class="config-label">② BDTI JSONパス（STEP2スクリプトの出力ファイル）</div>
+      <input id="bdtiPath" class="config-input" type="text" placeholder="bdti_latest.json（またはURLを入力）" value="bdti_latest.json"/>
+    </div>
+  </div>
+  <div class="config-actions">
+    <button class="btn-primary" id="fetchBtn" onclick="fetchAllData()">📡 全データ取得・更新</button>
+    <button class="btn-secondary" onclick="loadDemoMode()">🔧 デモモードで確認</button>
+    <select id="rangeSelect" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.72rem;padding:7px 10px;outline:none;">
+      <option value="30">1ヶ月</option>
+      <option value="90">3ヶ月</option>
+      <option value="180" selected>6ヶ月</option>
+      <option value="365">1年</option>
+    </select>
+    <div class="config-hint">
+      ※ EIA APIキーは<a href="https://www.eia.gov/opendata/register.php" target="_blank">こちら</a>から無料取得 ｜
+      BDTI JSON は fetch_bdti.py を実行後に生成されます
+    </div>
+  </div>
+</div>
+
+<!-- ヘッダー -->
+<div class="header">
+  <div>
+    <h1>原油価格 総合ダッシュボード
+      <span style="font-size:0.68rem;background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.3);color:#4ade80;padding:2px 8px;border-radius:3px;font-family:'IBM Plex Mono',monospace;vertical-align:middle;">STEP 3 — 統合版</span>
+    </h1>
+    <div class="subtitle">WTI・Brent：EIA API ｜ BDTI：stooq via Python ｜ Dubai：Brent近似 or FRED/IMF月次 ｜ 戦争保険：手動入力</div>
+  </div>
+  <div class="range-btns">
+    <button class="range-btn" onclick="setRange(30,this)">1M</button>
+    <button class="range-btn" onclick="setRange(90,this)">3M</button>
+    <button class="range-btn active" onclick="setRange(180,this)">6M</button>
+    <button class="range-btn" onclick="setRange(365,this)">1Y</button>
+  </div>
+</div>
+
+<!-- データソース状態 -->
+<div class="status-row">
+  <div class="status-item"><div class="status-dot" id="dotEia"></div><span id="stEia">EIA: 待機中</span></div>
+  <div class="status-item"><div class="status-dot" id="dotBdti"></div><span id="stBdti">BDTI: 待機中</span></div>
+  <div class="status-item"><div class="status-dot mock" id="dotDubai"></div><span id="stDubai">Dubai: モック</span></div>
+  <div class="status-item"><div class="status-dot mock" id="dotWar"></div><span id="stWar">戦争保険: 手動入力</span></div>
+  <div class="status-item" style="margin-left:auto;"><span id="stLastUpdate" style="color:#334155;">未取得</span></div>
+</div>
+
+<!-- KPI -->
+<div class="kpi-row">
+  <div class="kpi wti">
+    <div class="kpi-label">WTI CRUDE</div>
+    <div class="kpi-value" id="kWti">--</div>
+    <div class="kpi-change" id="kWtiC">--</div>
+    <div class="kpi-badge badge-live">EIA 公式</div>
+  </div>
+  <div class="kpi brent">
+    <div class="kpi-label">BRENT CRUDE</div>
+    <div class="kpi-value" id="kBrent">--</div>
+    <div class="kpi-change" id="kBrentC">--</div>
+    <div class="kpi-badge badge-live">EIA 公式</div>
+  </div>
+  <div class="kpi dubai">
+    <div class="kpi-label">DUBAI CRUDE</div>
+    <div class="kpi-value" id="kDubai">--</div>
+    <div class="kpi-change" id="kDubaiC">参考値</div>
+    <div class="kpi-badge badge-approx" id="dubaiSourceBadge">Brent近似</div>
+  </div>
+  <div class="kpi freight">
+    <div class="kpi-label">BDTI（運賃指標）</div>
+    <div class="kpi-value" id="kBdti">--</div>
+    <div class="kpi-change" id="kBdtiC">--</div>
+    <div class="kpi-badge badge-proxy">stooq 自動取得</div>
+  </div>
+  <div class="kpi war">
+    <div class="kpi-label">戦争保険料率</div>
+    <div class="kpi-value" id="kWar">0.045%</div>
+    <div class="kpi-change" id="kWarC">手動更新</div>
+    <div class="kpi-badge badge-manual">手動入力</div>
+  </div>
+</div>
+
+<!-- メインチャート -->
+<div class="chart-container">
+  <div class="chart-header">
+    <div class="chart-title">原油スポット価格推移（USD/bbl）</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--wti)"></div>WTI</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--brent)"></div>Brent</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--dubai)"></div>Dubai</div>
+    </div>
+  </div>
+  <canvas id="priceChart" height="240"></canvas>
+</div>
+
+<!-- 下段2列 -->
+<div class="bottom-row">
+  <div class="chart-container">
+    <div class="chart-header">
+      <div class="chart-title">BDTI（タンカー運賃指数）</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--freight)"></div>Baltic Dirty Tanker Index</div>
+      </div>
+    </div>
+    <canvas id="bdtiChart" height="150"></canvas>
+    <div class="note" style="margin-top:8px;">Dubai→Japan VLCC運賃の代替指標。stooq経由でfetch_bdti.pyが自動更新。</div>
+  </div>
+  <div class="chart-container">
+    <div class="chart-header">
+      <div class="chart-title">戦争保険料率</div>
+    </div>
+    <canvas id="warChart" height="100"></canvas>
+
+    <!-- 入力エリア -->
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.15);border-radius:6px;">
+      <span style="font-size:0.68rem;font-family:'IBM Plex Mono',monospace;color:var(--war);white-space:nowrap;">📌 今日のレート</span>
+      <input id="warInput" class="war-input" type="number" value="0.045" step="0.001" min="0" max="5"/>
+      <span style="font-size:0.68rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);">%</span>
+      <button class="war-apply" onclick="applyWarRate()">グラフに記録</button>
+    </div>
+
+    <!-- 参照情報パネル -->
+    <div style="margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <!-- タブヘッダー -->
+      <div style="display:flex;border-bottom:1px solid var(--border);" id="warTabs">
+        <button onclick="showWarTab('jwc')" id="tab-jwc" class="war-tab active-tab">① JWC 対象海域</button>
+        <button onclick="showWarTab('jla')" id="tab-jla" class="war-tab">② Japan P&amp;I / JLA</button>
+        <button onclick="showWarTab('gpr')" id="tab-gpr" class="war-tab">③ GPR指数</button>
+      </div>
+
+      <!-- ① JWC タブ -->
+      <div id="pane-jwc" style="padding:10px 12px;">
+        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:8px;">
+          Lloyd's JWC Listed Areas（リスク指定海域） ── 最新: JWLA-033（2026-03-06 更新）
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;" id="jwcAreaList"></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
+          <a href="https://lmalloyds.com/committee/joint-war-committee/" target="_blank" style="text-decoration:none;"><div class="link-item">🏛 Lloyd's Market Association（JWC公式）→ lmalloyds.com</div></a>
+          <a href="https://www.fa-maritime.com/en/joint-war-committee-listed-territories/" target="_blank" style="text-decoration:none;"><div class="link-item">🗺 JWC Listed Areas マップ一覧 → fa-maritime.com</div></a>
+        </div>
+        <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:#334155;margin-top:8px;">
+          ⚠ 航路が上記エリアに含まれる場合、追加保険料が発生します。確認後に上の入力欄へ記録してください。
+        </div>
+      </div>
+
+      <!-- ② JLA タブ -->
+      <div id="pane-jla" style="padding:10px 12px;display:none;">
+        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:8px;">
+          Japan P&amp;I Club（日本船主責任相互保険組合）── 戦争リスク関連通知
+        </div>
+        <!-- 最新通知バナー -->
+        <div style="padding:8px 10px;background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);border-radius:6px;margin-bottom:10px;">
+          <div style="font-size:0.63rem;font-family:'IBM Plex Mono',monospace;color:var(--war);font-weight:700;margin-bottom:3px;">📋 直近の主な通知</div>
+          <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;line-height:1.6;">
+            <div>• 2024-02-20 ── インド洋・アデン湾・南紅海の戦争リスクカバー変更</div>
+            <div>• 2023-02-20 ── 黒海・アゾフ海カバー限度額改定（JWLA対応）</div>
+            <div>• ホルムズ・ペルシャ湾 ── 継続的に高リスク水域として通知中</div>
+          </div>
+        </div>
+        <!-- 注記 -->
+        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:#475569;padding:7px 9px;background:rgba(255,255,255,0.02);border-left:2px solid #334155;border-radius:2px;margin-bottom:8px;">
+          ℹ 戦争保険の具体的な料率（%）は船社・ブローカー間の個別交渉のため非公開です。<br>
+          Japan P&amp;I Clubの通知を参照し、ご自身のブローカーへ問い合わせの上、入力してください。
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <a href="https://www.piclub.or.jp/ja/news/" target="_blank" style="text-decoration:none;"><div class="link-item">📢 Japan P&amp;I Club 最新ニュース一覧 → piclub.or.jp</div></a>
+          <a href="https://www.piclub.or.jp/ja/news/39088" target="_blank" style="text-decoration:none;"><div class="link-item">📄 アデン湾・紅海 戦争リスク通知（2024） → piclub.or.jp</div></a>
+          <a href="https://www.piclub.or.jp/ja/news/36804" target="_blank" style="text-decoration:none;"><div class="link-item">📄 黒海・アゾフ海 Excess War P&amp;I改定（2023） → piclub.or.jp</div></a>
+        </div>
+      </div>
+
+      <!-- ③ GPR タブ -->
+      <div id="pane-gpr" style="padding:10px 12px;display:none;">
+        <div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-bottom:6px;">
+          Geopolitical Risk Index（Caldara &amp; Iacoviello / FRB）── 月次・無料公開・自動取得
+        </div>
+        <canvas id="gprChart" height="90"></canvas>
+        <div id="gprStatus" style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-top:5px;"></div>
+        <div style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:#475569;margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.02);border-left:2px solid #334155;border-radius:2px;">
+          GPRが急上昇しているとき → 戦争保険料率も上昇している可能性が高いです。<br>
+          グラフを確認してから上の入力欄に今日のレートを記録してください。
+          <a href="https://www.matteoiacoviello.com/gpr.htm" target="_blank" style="color:#38bdf8;text-decoration:none;margin-left:6px;">出典（FRB） ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- アラート & メモ -->
+<div class="bottom-tools">
+  <div class="tool-box">
+    <div class="tool-title">⚡ アラート設定</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;">
+        <span style="color:var(--wti);width:48px;">WTI ≥</span>
+        <input id="aWti" type="number" value="80" step="1" style="width:65px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.7rem;padding:4px 7px;outline:none;">
+        <span>USD/bbl</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;">
+        <span style="color:var(--brent);width:48px;">Brent ≥</span>
+        <input id="aBrent" type="number" value="85" step="1" style="width:65px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.7rem;padding:4px 7px;outline:none;">
+        <span>USD/bbl</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;">
+        <span style="color:var(--freight);width:48px;">BDTI ≥</span>
+        <input id="aBdti" type="number" value="1500" step="50" style="width:65px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.7rem;padding:4px 7px;outline:none;">
+        <span>pt</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;color:#94a3b8;">
+        <span style="color:var(--war);width:48px;">WAR ≥</span>
+        <input id="aWar" type="number" value="0.10" step="0.01" style="width:65px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.7rem;padding:4px 7px;outline:none;">
+        <span>%</span>
+      </div>
+      <button onclick="checkAlerts()" style="margin-top:4px;background:var(--accent);color:#000;border:none;border-radius:4px;padding:7px 16px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;cursor:pointer;font-weight:700;width:fit-content;">チェック実行</button>
+      <div id="alertResult" style="font-size:0.7rem;font-family:'IBM Plex Mono',monospace;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);border-radius:5px;padding:8px 10px;display:none;"></div>
+    </div>
+  </div>
+  <div class="tool-box">
+    <div class="tool-title">📝 観察メモ</div>
+    <textarea id="memoText" placeholder="動向・所感を記録..." style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:0.78rem;padding:9px 11px;resize:vertical;min-height:72px;outline:none;box-sizing:border-box;"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <button onclick="saveMemo()" style="background:var(--accent);color:#000;border:none;border-radius:4px;padding:6px 14px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;cursor:pointer;font-weight:700;">保存</button>
+      <span id="memoSaved" style="font-size:0.63rem;font-family:'IBM Plex Mono',monospace;color:var(--green);display:none;">✓ 保存</span>
+    </div>
+    <div id="memoHistory" style="margin-top:8px;max-height:72px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div style="font-size:0.6rem;font-family:'IBM Plex Mono',monospace;color:#1e3a5f;text-align:right;margin-top:12px;" id="footerTime"></div>
+
+<script>
+// ===== 状態 =====
+let state = {
+  labels:[],wti:[],brent:[],dubai:[],bdti:[],war:[],
+  displayDays:180,
+  latestWti:null,latestBrent:null,latestBdti:null,latestWar:0.045
+};
+let charts = {};
+const memos = [];
+const warHistory = [0.042,0.043,0.044,0.043,0.045]; // 初期モック
+
+// ===== ヘルパー =====
+function daysAgo(n) {
+  const d=new Date(); d.setDate(d.getDate()-n);
+  return d.toISOString().split('T')[0];
+}
+function setDot(id,cls){ document.getElementById(id).className='status-dot '+cls; }
+function setText(id,t){ document.getElementById(id).textContent=t; }
+
+function showLoading(msg){ document.getElementById('loadingOverlay').classList.add('active'); document.getElementById('loadingText').textContent=msg||'取得中...'; }
+function hideLoading(){ document.getElementById('loadingOverlay').classList.remove('active'); }
+
+// ===== EIA取得 =====
+async function fetchEIA(apiKey, days){
+  const s=daysAgo(days+10), e=new Date().toISOString().split('T')[0];
+  const base=`https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${apiKey}&frequency=daily&data[0]=value&sort[0][column]=period&sort[0][direction]=asc&length=500`;
+  const [r1,r2]=await Promise.all([
+    fetch(base+`&facets[series][]=RWTC&start=${s}&end=${e}`),
+    fetch(base+`&facets[series][]=RBRTE&start=${s}&end=${e}`)
+  ]);
+  if(!r1.ok||!r2.ok) throw new Error(`EIA HTTPエラー ${r1.status}/${r2.status}`);
+  const [j1,j2]=await Promise.all([r1.json(),r2.json()]);
+  if(j1.response?.error) throw new Error('EIA: '+j1.response.error);
+
+  const wMap={}, bMap={};
+  (j1.response?.data||[]).forEach(d=>{ if(d.value!==null) wMap[d.period]=+d.value; });
+  (j2.response?.data||[]).forEach(d=>{ if(d.value!==null) bMap[d.period]=+d.value; });
+
+  const dates=Object.keys(wMap).sort();
+  const wti=[],brent=[],labels=[];
+  dates.forEach(dt=>{
+    if(wMap[dt]){
+      wti.push(wMap[dt]);
+      brent.push(bMap[dt]??wMap[dt]+3.2);
+      labels.push(dt.slice(5));
+    }
+  });
+  return {wti,brent,labels,count:dates.length,last:dates[dates.length-1]};
+}
+
+// ===== BDTI JSON読み込み =====
+async function fetchBDTI(path){
+  const r=await fetch(path);
+  if(!r.ok) throw new Error(`BDTI JSON ${r.status}: ${path}`);
+  return r.json();
+}
+
+// ===== 全データ取得 =====
+async function fetchAllData(){
+  const apiKey=document.getElementById('eiaKey').value.trim();
+  const bdtiPath=document.getElementById('bdtiPath').value.trim()||'bdti_latest.json';
+  const days=parseInt(document.getElementById('rangeSelect').value);
+
+  if(!apiKey){ alert('EIA APIキーを入力してください。'); return; }
+
+  document.getElementById('fetchBtn').disabled=true;
+  showLoading('EIA APIに接続中...');
+  setDot('dotEia','loading'); setText('stEia','EIA: 取得中...');
+  setDot('dotBdti','loading'); setText('stBdti','BDTI: 取得中...');
+
+  let eiaOk=false, bdtiOk=false;
+
+  // ===== EIA =====
+  try {
+    showLoading('WTI・Brent 取得中（EIA）...');
+    const eia=await fetchEIA(apiKey,days);
+    state.wti=eia.wti; state.brent=eia.brent; state.labels=eia.labels;
+    // Dubai: まずFREDから月次実データを試みる。失敗時はBrent近似にフォールバック
+    showLoading('Dubai Crude 取得中（FRED/IMF）...');
+    try {
+      const dubaiMonthly = await fetchDubaiFromFRED();
+      state.dubai = buildDubaiDaily(state.labels, dubaiMonthly);
+      state.dubaiSource = 'fred';
+      setDot('dotDubai','live'); setText('stDubai','Dubai: ✓ FRED/IMF月次データ');
+    } catch(e) {
+      // フォールバック: Brent - 0.5 USD の近似
+      state.dubai = state.brent.map(v => +(v - 0.5).toFixed(2));
+      state.dubaiSource = 'brent_approx';
+      setDot('dotDubai','proxy'); setText('stDubai','Dubai: Brent近似（FRED取得失敗）');
+      console.warn('Dubai FRED fetch failed, using Brent approx:', e.message);
+    }
+    state.latestWti=eia.wti[eia.wti.length-1];
+    state.latestBrent=eia.brent[eia.brent.length-1];
+    setDot('dotEia','live'); setText('stEia',`EIA: ✓ ${eia.count}日分 (〜${eia.last})`);
+    eiaOk=true;
+  } catch(e){
+    setDot('dotEia','error'); setText('stEia','EIA: ✗ '+e.message);
+    console.error(e);
+  }
+
+  // ===== BDTI =====
+  try {
+    showLoading('BDTI JSON読み込み中...');
+    const bdti=await fetchBDTI(bdtiPath);
+    // historyをdaysに絞ってlabelsに合わせる
+    const hist=bdti.history||[];
+    const bdtiMap={};
+    hist.forEach(h=>{ bdtiMap[h.Date?.slice(5)||h.date?.slice(5)]=h.BDTI??h.bdti; });
+    state.bdti=state.labels.map(l=>bdtiMap[l]??null);
+    state.latestBdti=bdti.latest?.value;
+    setDot('dotBdti','live'); setText('stBdti',`BDTI: ✓ 最終 ${bdti.latest?.date} = ${bdti.latest?.value}`);
+    bdtiOk=true;
+  } catch(e){
+    // BDTIがなければモック
+    setDot('dotBdti','mock'); setText('stBdti','BDTI: JSONなし→モック使用');
+    state.bdti=state.labels.map((_,i)=>950+Math.sin(i/15)*120+Math.random()*60);
+    state.latestBdti=state.bdti[state.bdti.length-1];
+    console.warn('BDTI JSON not found, using mock:', e.message);
+  }
+
+  // 戦争保険モック
+  state.war=state.labels.map((_,i)=>{
+    const base=0.042; const noise=Math.sin(i/20)*0.008+Math.random()*0.004;
+    return +(base+noise).toFixed(4);
+  });
+  state.latestWar=state.war[state.war.length-1];
+
+  updateKPI();
+  renderAllCharts(days);
+  setText('stLastUpdate','更新: '+new Date().toLocaleString('ja-JP'));
+  document.getElementById('footerTime').textContent=
+    `Last fetch: ${new Date().toLocaleString('ja-JP')} | EIA: ${eiaOk?'OK':'NG'} | BDTI: ${bdtiOk?'OK':'mock'}`;
+
+  hideLoading();
+  document.getElementById('fetchBtn').disabled=false;
+}
+
+// ===== デモモード =====
+function loadDemoMode(){
+  const n=180;
+  const dates=[];
+  const end=new Date('2026-03-08');
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(end); d.setDate(d.getDate()-i);
+    if(d.getDay()!==0&&d.getDay()!==6) dates.push(d.toISOString().slice(5,10));
+  }
+  const walk=(s,v,dr=0)=>{ const a=[s]; for(let i=1;i<dates.length;i++) a.push(+(a[i-1]+(Math.random()-0.5)*v+dr).toFixed(2)); return a; };
+  const wti=walk(74,1.2);
+  state.labels=dates;
+  state.wti=wti;
+  state.brent=wti.map(v=>+(v+3.5+(Math.random()-0.5)*0.3).toFixed(2));
+  state.dubai=state.brent.map(v=>+(v-0.5).toFixed(2)); // Brent近似
+  state.dubaiSource='brent_approx';
+  state.bdti=walk(1100,40);
+  state.war=dates.map((_,i)=>+(0.042+Math.sin(i/20)*0.008+Math.random()*0.004).toFixed(4));
+  state.latestWti=state.wti[state.wti.length-1];
+  state.latestBrent=state.brent[state.brent.length-1];
+  state.latestBdti=state.bdti[state.bdti.length-1];
+  state.latestWar=state.war[state.war.length-1];
+
+  setDot('dotEia','mock'); setText('stEia','EIA: デモデータ');
+  setDot('dotBdti','mock'); setText('stBdti','BDTI: デモデータ');
+  setDot('dotDubai','proxy'); setText('stDubai','Dubai: Brent近似（デモ）');
+  setText('stLastUpdate','デモモード');
+
+  updateKPI(); renderAllCharts(state.displayDays);
+  document.getElementById('footerTime').textContent='デモモード | '+new Date().toLocaleString('ja-JP');
+}
+
+// ===== KPI更新 =====
+function updateKPI(){
+  function set(vid,cid,arr){
+    const v=arr[arr.length-1], p=arr[arr.length-2];
+    document.getElementById(vid).textContent=v!=null?`$${v.toFixed(2)}`:'--';
+    if(v&&p){ const d=v-p,pct=(d/p*100).toFixed(2); const el=document.getElementById(cid); el.textContent=`${d>0?'▲':'▼'} ${Math.abs(d).toFixed(2)} (${d>0?'+':''}${pct}%)`; el.className='kpi-change '+(d>=0?'up':'down'); }
+  }
+  set('kWti','kWtiC',state.wti);
+  set('kBrent','kBrentC',state.brent);
+  set('kDubai','kDubaiC',state.dubai);
+  // Dubaiバッジをデータソースに応じて切り替え
+  const dubaiBadge = document.getElementById('dubaiSourceBadge');
+  if(dubaiBadge){
+    if(state.dubaiSource==='fred'){
+      dubaiBadge.textContent='FRED/IMF 月次'; dubaiBadge.className='kpi-badge badge-proxy';
+    } else {
+      dubaiBadge.textContent='Brent近似 ±0.5'; dubaiBadge.className='kpi-badge badge-approx';
+    }
+  }
+  const lb=state.latestBdti; if(lb){ document.getElementById('kBdti').textContent=Math.round(lb).toLocaleString()+'pt'; }
+  document.getElementById('kWar').textContent=(state.latestWar*100).toFixed(3)+'%';
+}
+
+// ===== チャート描画 =====
+function makeGrad(ctx,color,h=280){
+  const g=ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,color+'2a'); g.addColorStop(1,color+'00'); return g;
+}
+const baseOpts={
+  responsive:true, animation:{duration:350},
+  interaction:{mode:'index',intersect:false},
+  plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e293b',titleColor:'#94a3b8',bodyColor:'#e2e8f0',borderColor:'#334155',borderWidth:1,titleFont:{family:'IBM Plex Mono',size:10},bodyFont:{family:'IBM Plex Mono',size:11}}},
+  scales:{
+    x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569',font:{family:'IBM Plex Mono',size:9},maxTicksLimit:10}},
+    y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#475569',font:{family:'IBM Plex Mono',size:9}}}
+  }
+};
+
+function renderAllCharts(days){
+  state.displayDays=days;
+  const sl=arr=>arr.slice(-Math.min(days,arr.length));
+  const labels=sl(state.labels);
+
+  // 原油価格チャート
+  const ctx1=document.getElementById('priceChart').getContext('2d');
+  if(charts.price) charts.price.destroy();
+  charts.price=new Chart(ctx1,{type:'line',data:{labels,datasets:[
+    {label:'WTI',data:sl(state.wti),borderColor:'#f59e0b',backgroundColor:makeGrad(ctx1,'#f59e0b'),borderWidth:2,pointRadius:0,fill:true,tension:0.3},
+    {label:'Brent',data:sl(state.brent),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:1.8,pointRadius:0,tension:0.3},
+    {label:'Dubai',data:sl(state.dubai),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.3}
+  ]},options:{...baseOpts,plugins:{...baseOpts.plugins,tooltip:{...baseOpts.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: $${c.parsed.y?.toFixed(2)}`}}},scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>'$'+v}}}}});
+
+  // BDTIチャート
+  const ctx2=document.getElementById('bdtiChart').getContext('2d');
+  if(charts.bdti) charts.bdti.destroy();
+  charts.bdti=new Chart(ctx2,{type:'line',data:{labels,datasets:[
+    {label:'BDTI',data:sl(state.bdti),borderColor:'#34d399',backgroundColor:makeGrad(ctx2,'#34d399',200),borderWidth:1.8,pointRadius:0,fill:true,tension:0.3}
+  ]},options:{...baseOpts,plugins:{...baseOpts.plugins,tooltip:{...baseOpts.plugins.tooltip,callbacks:{label:c=>` BDTI: ${Math.round(c.parsed.y)}pt`}}}}});
+
+  // 戦争保険チャート
+  const ctx3=document.getElementById('warChart').getContext('2d');
+  if(charts.war) charts.war.destroy();
+  charts.war=new Chart(ctx3,{type:'line',data:{labels,datasets:[
+    {label:'戦争保険料',data:sl(state.war),borderColor:'#f87171',backgroundColor:makeGrad(ctx3,'#f87171',160),borderWidth:1.8,pointRadius:0,fill:true,tension:0.3}
+  ]},options:{...baseOpts,plugins:{...baseOpts.plugins,tooltip:{...baseOpts.plugins.tooltip,callbacks:{label:c=>` ${(c.parsed.y*100).toFixed(4)}%`}}},scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>(v*100).toFixed(3)+'%'}}}}});
+}
+
+function makeGrad(ctx,c,h=280){
+  const g=ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,c+'2e'); g.addColorStop(1,c+'00'); return g;
+}
+
+function setRange(d,btn){
+  document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(state.labels.length) renderAllCharts(d);
+}
+
+// ===== 戦争保険 手動追加 =====
+function applyWarRate(){
+  const v=parseFloat(document.getElementById('warInput').value);
+  if(isNaN(v)||v<0) return;
+  state.latestWar=v/100;
+  if(state.war.length) state.war[state.war.length-1]=v/100;
+  document.getElementById('kWar').textContent=v.toFixed(3)+'%';
+  if(charts.war) renderAllCharts(state.displayDays);
+  document.getElementById('stWar').textContent=`戦争保険: 手動 ${v.toFixed(3)}%`;
+}
+
+// ===== アラート =====
+function checkAlerts(){
+  const wtiV=state.latestWti, brentV=state.latestBrent, bdtiV=state.latestBdti, warV=state.latestWar*100;
+  const wtiT=+document.getElementById('aWti').value;
+  const brentT=+document.getElementById('aBrent').value;
+  const bdtiT=+document.getElementById('aBdti').value;
+  const warT=+document.getElementById('aWar').value;
+  const msgs=[];
+  if(wtiV>=wtiT)   msgs.push(`⚠ WTI $${wtiV?.toFixed(2)} ≥ $${wtiT}`);
+  if(brentV>=brentT) msgs.push(`⚠ Brent $${brentV?.toFixed(2)} ≥ $${brentT}`);
+  if(bdtiV>=bdtiT)  msgs.push(`⚠ BDTI ${Math.round(bdtiV)}pt ≥ ${bdtiT}pt`);
+  if(warV>=warT)    msgs.push(`⚠ 戦争保険 ${warV.toFixed(3)}% ≥ ${warT}%`);
+  const el=document.getElementById('alertResult');
+  if(msgs.length){ el.innerHTML=msgs.join('<br>'); el.style.display='block'; }
+  else{
+    el.innerHTML='✓ すべて閾値以下'; el.style.color='var(--green)';
+    el.style.background='rgba(74,222,128,0.07)'; el.style.borderColor='rgba(74,222,128,0.25)';
+    el.style.display='block';
+    setTimeout(()=>{ el.style.display='none'; el.style.color='var(--red)'; el.style.background='rgba(248,113,113,0.08)'; el.style.borderColor='rgba(248,113,113,0.3)'; },3000);
+  }
+}
+
+// ===== メモ =====
+function saveMemo(){
+  const t=document.getElementById('memoText').value.trim(); if(!t) return;
+  memos.unshift({t,d:new Date().toLocaleString('ja-JP')});
+  document.getElementById('memoText').value='';
+  const s=document.getElementById('memoSaved'); s.style.display='inline';
+  setTimeout(()=>s.style.display='none',2000);
+  document.getElementById('memoHistory').innerHTML=memos.slice(0,3).map(m=>
+    `<div style="font-size:0.63rem;font-family:'IBM Plex Mono',monospace;color:#475569;border-top:1px solid var(--border);padding:4px 0;">[${m.d}] ${m.t}</div>`
+  ).join('');
+}
+
+// ===== 初期化 =====
+document.getElementById('footerTime').textContent='起動: '+new Date().toLocaleString('ja-JP');
+loadDemoMode(); // 初期表示はデモモード
+
+// ===== 戦争保険 参照パネル =====
+
+// JWC 対象海域リスト（JWLA-033 2026-03-06 時点）
+const JWC_AREAS = [
+  {name:'ペルシャ湾', level:'high'},
+  {name:'ホルムズ海峡', level:'high'},
+  {name:'オマーン湾（一部）', level:'high'},
+  {name:'バーレーン沿岸', level:'high'},
+  {name:'クウェート沿岸', level:'high'},
+  {name:'カタール沿岸', level:'high'},
+  {name:'UAE沿岸', level:'high'},
+  {name:'オマーン沿岸（一部）', level:'mid'},
+  {name:'紅海（北部・南部）', level:'high'},
+  {name:'アデン湾', level:'high'},
+  {name:'ジブチ沿岸', level:'mid'},
+  {name:'ソマリア沿岸', level:'mid'},
+  {name:'黒海', level:'high'},
+  {name:'アゾフ海', level:'high'},
+  {name:'ウクライナ沿岸', level:'high'},
+  {name:'パキスタン沿岸（一部）', level:'mid'},
+];
+
+function initJwcList(){
+  const el = document.getElementById('jwcAreaList');
+  if(!el) return;
+  el.innerHTML = JWC_AREAS.map(a => {
+    const col = a.level === 'high' ? '#f87171' : '#fbbf24';
+    const bg  = a.level === 'high' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)';
+    const bd  = a.level === 'high' ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.3)';
+    return `<span style="display:inline-block;padding:3px 9px;background:${bg};border:1px solid ${bd};border-radius:12px;font-size:0.58rem;font-family:'IBM Plex Mono',monospace;color:${col};">${a.name}</span>`;
+  }).join('');
+}
+
+// タブ切り替え
+function showWarTab(id){
+  ['jwc','jla','gpr'].forEach(t => {
+    const pane = document.getElementById('pane-'+t);
+    if(pane) pane.style.display = t===id ? '' : 'none';
+    const btn = document.getElementById('tab-'+t);
+    if(btn) btn.classList.toggle('active-tab', t===id);
+  });
+  if(id === 'gpr') initGprChart();
+}
+
+// GPRデータ取得 & グラフ
+let gprChartInst = null;
+let gprLoaded = false;
+
+async function initGprChart(){
+  if(gprLoaded) return;
+  const statusEl = document.getElementById('gprStatus');
+  statusEl.textContent = 'GPRデータを取得中...';
+  try {
+    // CORS対応: matteoiacoviello.com の公開Excelは直接fetchできないため
+    // FREDのAPIからGPR月次データを取得（無料・CORS対応）
+    const url = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=GPRC_US&vintage_date=&realtime_start=&realtime_end=&transformation=lin&scale=left&cosd=2020-01-01&coed=2099-12-31&fq=Monthly';
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('FRED HTTP ' + r.status);
+    const csv = await r.text();
+    const rows = csv.trim().split('\n').slice(1).filter(r => r && !r.includes('.'));
+    const labels = [], values = [];
+    rows.forEach(row => {
+      const [date, val] = row.split(',');
+      if(date && val && val.trim() !== '.'){
+        labels.push(date.slice(0,7)); // YYYY-MM
+        values.push(parseFloat(val));
+      }
+    });
+    if(values.length === 0) throw new Error('データなし');
+
+    const ctx = document.getElementById('gprChart').getContext('2d');
+    if(gprChartInst) gprChartInst.destroy();
+    gprChartInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets:[{
+          label:'GPR Index',
+          data: values,
+          borderColor:'#f87171',
+          backgroundColor:'rgba(248,113,113,0.08)',
+          borderWidth:1.5,
+          pointRadius:0,
+          fill:true,
+          tension:0.3
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`GPR: ${c.parsed.y.toFixed(0)}`}}},
+        scales:{
+          x:{ticks:{font:{size:9},color:'#475569',maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.03)'}},
+          y:{ticks:{font:{size:9},color:'#475569'},grid:{color:'rgba(255,255,255,0.04)'}}
+        }
+      }
+    });
+    const latest = values[values.length-1];
+    const latestDate = labels[labels.length-1];
+    statusEl.textContent = `最新値: ${latest.toFixed(0)}pt（${latestDate}）── 100以上は地政学的緊張高まり`;
+    gprLoaded = true;
+  } catch(e) {
+    statusEl.textContent = '⚠ 自動取得失敗（' + e.message + '）。公式リンクから手動で確認してください。';
+  }
+}
+
+// ===== Dubai FRED取得（月次） =====
+async function fetchDubaiFromFRED() {
+  // FRED: POILDUBUSDM = IMF Dubai Crude 月次 USD/bbl
+  const url = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=POILDUBUSDM&cosd=2023-01-01';
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('FRED HTTP ' + r.status);
+  const csv = await r.text();
+  const rows = csv.trim().split('\n').slice(1);
+  const result = {};
+  rows.forEach(row => {
+    const [date, val] = row.split(',');
+    if (date && val && val.trim() !== '.') {
+      result[date.slice(0, 7)] = parseFloat(val); // "YYYY-MM" → value
+    }
+  });
+  if (Object.keys(result).length === 0) throw new Error('データなし');
+  return result;
+}
+
+// 月次Dubaiデータを日次ラベルに展開（月中は前月値を使用）
+function buildDubaiDaily(labels, monthlyMap) {
+  return labels.map(label => {
+    // label は "MM-DD" 形式 → 現在年を補完してYYYY-MMを取得
+    const year = new Date().getFullYear();
+    const ym = `${year}-${label.slice(0,2)}`; // "MM-DD" → "YYYY-MM"
+    // 当月がなければ前月を探す（最大3か月前まで）
+    for (let offset = 0; offset <= 3; offset++) {
+      const d = new Date(year, parseInt(label.slice(0,2)) - 1 - offset, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (monthlyMap[key] != null) return monthlyMap[key];
+    }
+    return null;
+  });
+}
+
+// 起動時に初期化
+initJwcList();
+</script>
+</body>
+</html>
