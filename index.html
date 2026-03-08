@@ -16,7 +16,10 @@
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html { font-size: clamp(9px, 0.85vw, 13px); }
-  body { background:var(--bg); color:var(--text); font-family:'Noto Sans JP',sans-serif; height:100vh; overflow:hidden; padding:0.6rem 1.2rem; display:flex; flex-direction:column; }
+  body { background:var(--bg); color:var(--text); font-family:'Noto Sans JP',sans-serif; height:100vh; overflow:hidden; padding:0.5rem 1rem; display:flex; flex-direction:column; gap:0; }
+  /* 上部固定エリア（設定・ヘッダー・ステータス・KPI）をautoに、グラフエリアをflexで残り全部 */
+  .fixed-top { flex-shrink:0; }
+  .chart-area { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; }
 
   /* 設定パネル */
   .config-panel {
@@ -105,7 +108,7 @@
   .badge-approx { background:rgba(167,139,250,0.08); color:#c084fc; border:1px solid rgba(167,139,250,0.25); }
 
   /* チャートエリア */
-  .chart-container { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:8px; }
+  .chart-container { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:8px; overflow:hidden; }
   .chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
   .chart-title { font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
   .legend { display:flex; gap:12px; flex-wrap:wrap; }
@@ -153,6 +156,7 @@
   <div class="loading-text" id="loadingText">データ取得中...</div>
 </div>
 
+<div class="fixed-top">
 <!-- 設定パネル -->
 <div class="config-panel">
   <div class="config-title">⚙ データソース設定</div>
@@ -240,12 +244,13 @@
     <div class="kpi-badge badge-manual">手動入力</div>
   </div>
 </div>
+</div><!-- end fixed-top -->
 
 <!-- グラフエリア: 上=原油全幅 / 下=BDTI+戦争保険2列 -->
-<div style="display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;">
+<div class="chart-area">
 
   <!-- 上段: 原油スポット価格 全幅 -->
-  <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;flex:1.2;">
+  <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;flex:1.5;min-height:0;">
     <div class="chart-header">
       <div class="chart-title">原油スポット価格推移（USD/bbl）</div>
       <div class="legend">
@@ -258,7 +263,7 @@
   </div>
 
   <!-- 下段: BDTI | 戦争保険料率 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;min-height:0;">
 
     <!-- BDTI -->
     <div class="chart-container" style="margin-bottom:0;display:flex;flex-direction:column;">
@@ -561,7 +566,7 @@ function makeGrad(ctx,color,h=280){
   g.addColorStop(0,color+'2a'); g.addColorStop(1,color+'00'); return g;
 }
 const baseOpts={
-  responsive:true, animation:{duration:350},
+  responsive:true, maintainAspectRatio:false, animation:{duration:350},
   interaction:{mode:'index',intersect:false},
   plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e293b',titleColor:'#94a3b8',bodyColor:'#e2e8f0',borderColor:'#334155',borderWidth:1,titleFont:{family:'IBM Plex Mono',size:10},bodyFont:{family:'IBM Plex Mono',size:11}}},
   scales:{
