@@ -23,10 +23,9 @@ jobs:
       - name: Run fetch_bdti.py
         run: python fetch_bdti.py
 
-      - name: Commit and push
+- name: Commit and push
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add bdti_latest.json bdti_data.csv
-          git diff --staged --quiet || git commit -m "Update BDTI data $(date +'%Y-%m-%d')"
-          git push
+          git add -A
+          git diff --staged --quiet && echo "変更なし（土日・祝日）" || git commit -m "Update BDTI data $(date +'%Y-%m-%d')" && git push
